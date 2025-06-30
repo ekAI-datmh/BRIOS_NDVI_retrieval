@@ -473,7 +473,9 @@ def read_coordinates_from_excel(excel_file_path):
     return coordinates_dict
 
 
-def process_single_roi(roi_item, start_date_ee, end_date_ee, big_folder, enable_parallel_downloads=True, generate_date_mapping=False, max_retries=5):
+def process_single_roi(roi_item, start_date_ee, end_date_ee, big_folder, 
+                       crawl_rvi=True, crawl_ndvi=True, 
+                       enable_parallel_downloads=True, generate_date_mapping=False, max_retries=5):
     """
     Process a single ROI with rate limiting, error handling, and verification/recrawl logic.
     
@@ -482,6 +484,8 @@ def process_single_roi(roi_item, start_date_ee, end_date_ee, big_folder, enable_
         start_date_ee: Start date for data retrieval
         end_date_ee: End date for data retrieval
         big_folder: Output directory
+        crawl_rvi (bool): Whether to crawl RVI data.
+        crawl_ndvi (bool): Whether to crawl NDVI data.
         enable_parallel_downloads: Enable parallel processing for individual band downloads
         generate_date_mapping: Enable RVI date mapping generation (may cause hanging)
         max_retries: Maximum number of processing attempts for the ROI.
@@ -506,16 +510,20 @@ def process_single_roi(roi_item, start_date_ee, end_date_ee, big_folder, enable_
             # Apply rate limiting before making GEE requests
             rate_limiter.wait_if_needed()
             
-            # Retrieve RVI (expects order: start, end, geometry, big_folder, roi_name, enable_parallel, generate_date_mapping)
-            main_rvi(start_date_ee, end_date_ee, geometry_obj, big_folder, roi_name, 
-                     enable_parallel=enable_parallel_downloads, generate_date_mapping=generate_date_mapping)
-            
-            # Small delay between RVI and NDVI to avoid overwhelming GEE
-            time.sleep(2)
-            rate_limiter.wait_if_needed()
-            
-            # Retrieve NDVI (expects order: start, end, geometry, roi_name, big_folder, enable_parallel)
-            main_ndvi(start_date_ee, end_date_ee, geometry_obj, roi_name, big_folder, enable_parallel=enable_parallel_downloads)
+            if crawl_rvi:
+                logging.info(f"Retrieving RVI for {roi_name}...")
+                # Retrieve RVI (expects order: start, end, geometry, big_folder, roi_name, enable_parallel, generate_date_mapping)
+                main_rvi(start_date_ee, end_date_ee, geometry_obj, big_folder, roi_name, 
+                         enable_parallel=enable_parallel_downloads, generate_date_mapping=generate_date_mapping)
+                
+                # Small delay between RVI and NDVI to avoid overwhelming GEE
+                time.sleep(2)
+                rate_limiter.wait_if_needed()
+
+            if crawl_ndvi:
+                logging.info(f"Retrieving NDVI for {roi_name}...")
+                # Retrieve NDVI (expects order: start, end, geometry, roi_name, big_folder, enable_parallel)
+                main_ndvi(start_date_ee, end_date_ee, geometry_obj, roi_name, big_folder, enable_parallel=enable_parallel_downloads)
 
             # --- VERIFICATION STEP ---
             roi_path = os.path.join(big_folder, roi_name)
@@ -561,7 +569,9 @@ def process_single_roi(roi_item, start_date_ee, end_date_ee, big_folder, enable_
     return result
 
 
-def process_rois_parallel(rois, start_date_ee, end_date_ee, big_folder, max_workers=3, enable_parallel_downloads=True, generate_date_mapping=False):
+def process_rois_parallel(rois, start_date_ee, end_date_ee, big_folder, 
+                        max_workers=3, crawl_rvi=True, crawl_ndvi=True, 
+                        enable_parallel_downloads=True, generate_date_mapping=False):
     """
     Process ROIs in parallel with controlled concurrency.
     
@@ -571,6 +581,8 @@ def process_rois_parallel(rois, start_date_ee, end_date_ee, big_folder, max_work
         end_date_ee: End date for data retrieval
         big_folder: Output directory
         max_workers: Maximum number of concurrent workers (default: 3)
+        crawl_rvi (bool): Whether to crawl RVI data.
+        crawl_ndvi (bool): Whether to crawl NDVI data.
         enable_parallel_downloads: Enable parallel processing for individual band downloads
         generate_date_mapping: Enable RVI date mapping generation (may cause hanging)
     
@@ -586,7 +598,9 @@ def process_rois_parallel(rois, start_date_ee, end_date_ee, big_folder, max_work
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # Submit all tasks
         future_to_roi = {
-            executor.submit(process_single_roi, roi_item, start_date_ee, end_date_ee, big_folder, enable_parallel_downloads, generate_date_mapping): roi_item[0]
+            executor.submit(process_single_roi, roi_item, start_date_ee, end_date_ee, big_folder,
+                            crawl_rvi, crawl_ndvi,
+                            enable_parallel_downloads, generate_date_mapping): roi_item[0]
             for roi_item in roi_items
         }
         
@@ -651,42 +665,71 @@ if __name__ == "__main__":
     ------------------------------------------------------------------
     This version no longer scans ROI folders.  Instead it builds 512 × 512 pixel
     (10-m resolution) bounding-boxes around a hard-coded set of centre
-    coordinates, then retrieves NDVI and RVI time-series (01-Jan-2023 →
-    01-Jan-2024) for each box.
+    coordinates, then retrieves NDVI and RVI time-series for each box.
     """
 
     # ---------------------------------------------------------------------
-    # CONFIG – read coordinates from Excel and processing parameters
+    # HYPERPARAMETERS & CONFIGURATION
     # ---------------------------------------------------------------------
-    excel_file_path = '/mnt/hdd12tb/code/nhatvm/BRIOS/BRIOS/data_retrieval/forest_grids_balanced.xlsx'  # Update with the correct path to your Excel file
+    
+    # --- Data sources ---
+    excel_file_path = '/mnt/hdd12tb/code/nhatvm/BRIOS/BRIOS/data_retrieval/forest_grids_balanced.xlsx'
+    big_folder = "/mnt/hdd12tb/code/nhatvm/BRIOS/BRIOS/data_Tung_ndvi_s2_combined"
+    
+    # --- Time range ---
+    date_start_str = '2019-01-01'
+    date_end_str   = '2025-01-01'
+
+    # --- Crawling Control ---
+    # Set to True to crawl RVI, False to skip
+    CRAWL_RVI = True
+    # Set to True to crawl NDVI, False to skip
+    CRAWL_NDVI = True
+
+    # --- ROI Partitioning ---
+    # To process all ROIs, set ROI_SLICE_START = 0 and ROI_SLICE_END = None.
+    # To process a subset, define the start and end index. For example, to
+    # process ROIs from index 100 up to (but not including) 200, set:
+    # ROI_SLICE_START = 100
+    # ROI_SLICE_END = 200
+    # This is useful for splitting a large job into smaller batches.
+    ROI_SLICE_START = 200      # Inclusive index, starts from 0
+    ROI_SLICE_END = 250     # Exclusive index (e.g., 10 processes up to index 9)
+
+    # --- Performance ---
+    MAX_WORKERS = 4
+    ENABLE_PARALLEL = True
+    ENABLE_PARALLEL_DOWNLOADS = True
+    GENERATE_DATE_MAPPING = True # Can be slow
+
+    # ---------------------------------------------------------------------
+    # Initialization
+    # ---------------------------------------------------------------------
+    start_date_ee  = ee.Date(date_start_str)
+    end_date_ee    = ee.Date(date_end_str)
+    
     coordinates_dict = read_coordinates_from_excel(excel_file_path)
 
     if not coordinates_dict:
         logging.error("No coordinates were loaded from the Excel file. Exiting.")
         exit(1)
 
-    # Processing configuration
-    MAX_WORKERS = 4  # Adjust based on your system and GEE quota limits
-    ENABLE_PARALLEL = True  # Set to False for sequential processing
-    ENABLE_PARALLEL_DOWNLOADS = True  # Enable parallel downloads within each ROI processing
-    GENERATE_DATE_MAPPING = True  # Set to True to generate RVI date mapping (may cause hanging)
+    # ------------------------------------------------------------------
+    # Build ROIs and apply partitioning
+    # ------------------------------------------------------------------
+    all_rois = create_rois_from_coordinates_dict(coordinates_dict, resolutions=[10], pixels=695)
     
-    # Time range
-    date_start_str = '2019-01-01'
-    date_end_str   = '2025-01-01'
-    start_date_ee  = ee.Date(date_start_str)
-    end_date_ee    = ee.Date(date_end_str)
+    # Apply slicing to the ROIs
+    roi_items = list(all_rois.items())
+    if ROI_SLICE_END is None:
+        ROI_SLICE_END = len(roi_items)
+    
+    sliced_roi_items = roi_items[ROI_SLICE_START:ROI_SLICE_END]
+    rois = dict(sliced_roi_items)
 
-    # Output root directory
-    big_folder = "/mnt/hdd12tb/code/nhatvm/BRIOS/BRIOS/data_Tung_ndvi_s2_combined"
-
-    # ------------------------------------------------------------------
-    # Build 512×512 @10 m ROIs
-    # ------------------------------------------------------------------
-    rois = create_rois_from_coordinates_dict(coordinates_dict, resolutions=[10], pixels=695)
-
-    logging.info(f"Prepared {len(rois)} ROI geometries from {len(coordinates_dict)} coordinate pairs")
+    logging.info(f"Prepared {len(all_rois)} total ROI geometries, processing slice [{ROI_SLICE_START}:{ROI_SLICE_END}] -> {len(rois)} ROIs")
     logging.info(f"Processing configuration: MAX_WORKERS={MAX_WORKERS}, PARALLEL={ENABLE_PARALLEL}, PARALLEL_DOWNLOADS={ENABLE_PARALLEL_DOWNLOADS}")
+    logging.info(f"Crawling: RVI={'ON' if CRAWL_RVI else 'OFF'}, NDVI={'ON' if CRAWL_NDVI else 'OFF'}")
     logging.info(f"Date range: {date_start_str} to {date_end_str}")
     logging.info(f"Output folder: {big_folder}")
 
@@ -697,7 +740,11 @@ if __name__ == "__main__":
     
     if ENABLE_PARALLEL and len(rois) > 1:
         # Parallel processing
-        results = process_rois_parallel(rois, start_date_ee, end_date_ee, big_folder, max_workers=MAX_WORKERS, enable_parallel_downloads=ENABLE_PARALLEL_DOWNLOADS, generate_date_mapping=GENERATE_DATE_MAPPING)
+        results = process_rois_parallel(rois, start_date_ee, end_date_ee, big_folder, 
+                                        max_workers=MAX_WORKERS,
+                                        crawl_rvi=CRAWL_RVI, crawl_ndvi=CRAWL_NDVI,
+                                        enable_parallel_downloads=ENABLE_PARALLEL_DOWNLOADS, 
+                                        generate_date_mapping=GENERATE_DATE_MAPPING)
         print_processing_summary(results)
     else:
         # Sequential processing (fallback or single ROI)
@@ -706,7 +753,10 @@ if __name__ == "__main__":
         
         for roi_name, geometry_obj in rois.items():
             roi_item = (roi_name, geometry_obj)
-            result = process_single_roi(roi_item, start_date_ee, end_date_ee, big_folder, enable_parallel_downloads=ENABLE_PARALLEL_DOWNLOADS, generate_date_mapping=GENERATE_DATE_MAPPING)
+            result = process_single_roi(roi_item, start_date_ee, end_date_ee, big_folder,
+                                        crawl_rvi=CRAWL_RVI, crawl_ndvi=CRAWL_NDVI,
+                                        enable_parallel_downloads=ENABLE_PARALLEL_DOWNLOADS, 
+                                        generate_date_mapping=GENERATE_DATE_MAPPING)
             results.append(result)
         
         print_processing_summary(results)

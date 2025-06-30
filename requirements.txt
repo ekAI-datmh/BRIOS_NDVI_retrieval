@@ -1,0 +1,10 @@
+earthengine-api
+pandas
+openpyxl
+rasterio
+numpy
+requests
+loguru
+python-dotenv
+tqdm
+notebook 

@@ -11,7 +11,8 @@ __pycache__/
 # data
 **/download_data
 **/new_download_data
-*.xlsx
+*220kv.xlsx
+*500kv.xlsx
 *.csv
 *.zip
 LST*
