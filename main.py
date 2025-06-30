@@ -673,7 +673,7 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------
     
     # --- Data sources ---
-    excel_file_path = '/mnt/hdd12tb/code/nhatvm/BRIOS/BRIOS/data_retrieval/forest_grids_balanced.xlsx'
+    excel_file_path = '/forest_grids_balanced.xlsx'
     big_folder = "/mnt/hdd12tb/code/nhatvm/BRIOS/BRIOS/data_Tung_ndvi_s2_combined"
     
     # --- Time range ---

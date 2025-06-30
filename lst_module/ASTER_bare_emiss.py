@@ -1,5 +1,8 @@
 import ee
-ee.Initialize(project='ee-hadat')
+GEE_PROJECT = "ee-hadat"
+ee.Authenticate()
+ee.Initialize(project=GEE_PROJECT)
+# ee.Initialize(project='ee-hadat')
 
 # Get ASTER emissivity image.
 aster = ee.Image("NASA/ASTER_GED/AG100_003")

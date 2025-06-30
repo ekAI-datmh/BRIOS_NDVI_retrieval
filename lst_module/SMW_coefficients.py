@@ -1,5 +1,5 @@
 import ee
-ee.Initialize(project='ee-hadat')
+# ee.Initialize(project='ee-hadat')
 
 COEFF_SMW_L4 = ee.FeatureCollection([
     ee.Feature(None, {'TPWpos': 0, 'A': 0.9755, 'B': -205.2767, 'C': 212.0051}),

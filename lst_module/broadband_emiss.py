@@ -1,5 +1,5 @@
 import ee
-ee.Initialize(project='ee-hadat')
+# ee.Initialize(project='ee-hadat')
 
 # Import the ASTER GED bare emissivity module.
 # It should provide functions: emiss_bare_band10, emiss_bare_band11, emiss_bare_band12,

@@ -37,6 +37,12 @@ Before running the script, please configure the following:
     -   For example, to process the first 50 ROIs, set `ROI_SLICE_START = 0` and `ROI_SLICE_END = 50`. To process the next batch, you could set it to `ROI_SLICE_START = 50` and `ROI_SLICE_END = 100`.
     -   To process all ROIs, set `ROI_SLICE_START = 0` and `ROI_SLICE_END = None`.
 
+-   **Google Earth Engine Project:**
+    -   Set the Google Earth Engine project ID for authentication. This is required for accessing Earth Engine services.
+    -   **Only need to set in the file lst_module/ASTER_bare_emiss.py**
+    -   Example: `GEE_PROJECT = 'your-gee-project-id'`
+    -   If you don't have a project, you can create one at [Google Cloud Console](https://console.cloud.google.com/).
+
 ## Usage
 
 After configuring `main.py`, run the script from your terminal:

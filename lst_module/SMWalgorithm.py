@@ -1,6 +1,6 @@
 import ee
 from lst_module.SMW_coefficients import *
-ee.Initialize(project='ee-hadat')
+# ee.Initialize(project='ee-hadat')
 
 # Assume you have imported or defined SMWcoef with coefficient collections.
 # For example:

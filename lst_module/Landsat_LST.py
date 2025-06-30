@@ -1,5 +1,4 @@
 import ee
-ee.Initialize(project='ee-hadat')
 
 # Assume that the following modules have been ported to Python.
 # Their functions should mimic the JS modules:

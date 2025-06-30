@@ -1,5 +1,5 @@
 import ee
-ee.Initialize(project='ee-hadat')
+# ee.Initialize(project='ee-hadat')
 
 def toa(image):
     """
