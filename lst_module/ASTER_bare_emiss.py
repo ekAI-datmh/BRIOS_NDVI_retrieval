@@ -1,5 +1,5 @@
 import ee
-GEE_PROJECT = "ee-hadat"
+GEE_PROJECT = ""
 ee.Authenticate()
 ee.Initialize(project=GEE_PROJECT)
 # ee.Initialize(project='ee-hadat')
