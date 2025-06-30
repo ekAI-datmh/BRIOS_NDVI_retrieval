@@ -5,7 +5,7 @@ This project contains scripts to download NDVI (Normalized Difference Vegetation
 ## Setup
 
 1.  **Install Dependencies:**
-    Before running the scripts, install the required Python(recommend ) packages using the `requirements.txt` file.
+    Before running the scripts, install the required Python(recommend python 3.11) packages using the `requirements.txt` file.
 
     ```bash
     pip install -r requirements.txt
