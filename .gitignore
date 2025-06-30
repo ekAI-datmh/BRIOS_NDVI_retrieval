@@ -1,0 +1,28 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+*.pyc
+__pycache__/
+.ipynb_checkpoints/
+
+# data
+**/download_data
+**/new_download_data
+*.xlsx
+*.csv
+*.zip
+LST*
+LST_*
+LST-*
+false_data/
+
+# ide
+.idea
+.vscode
+*.swp
+
+# notebooks
+*.ipynb
